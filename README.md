@@ -1,2 +1,3 @@
 # CFAI
-CFAI
+Hospital Navigation Assistant
+
