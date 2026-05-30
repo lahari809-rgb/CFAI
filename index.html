@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hospital Navigation Assistant</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 14px; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 20px; }
+
+.app { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: 650px; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; background: #fff; width: 100%; max-width: 1000px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+
+.sidebar { background: #f9f9f8; border-right: 1px solid #eee; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.main { display: flex; flex-direction: column; }
+.map-area { flex: 1; position: relative; padding: 12px; min-height: 400px; }
+.log-area { border-top: 1px solid #eee; height: 180px; overflow-y: auto; padding: 10px 14px; background: #f9f9f8; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6; }
+
+.section-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+
+select, input[type=text] { width: 100%; padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #1a1a1a; font-size: 13px; outline: none; }
+select:focus, input:focus { border-color: #1D9E75; }
+
+button { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #1a1a1a; font-size: 13px; cursor: pointer; text-align: left; transition: background 0.15s; }
+button:hover { background: #f0f0f0; }
+button.primary { background: #1D9E75; color: white; border-color: #1D9E75; font-weight: 500; text-align: center; }
+button.primary:hover { background: #0F6E56; }
+button.primary:disabled { background: #9FE1CB; border-color: #9FE1CB; cursor: not-allowed; }
+button.reset-btn { text-align: center; color: #666; }
+
+.metric-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.metric { background: #f0f0f0; border-radius: 8px; padding: 8px; text-align: center; border: 1px solid #e0e0e0; }
+.metric .val { font-size: 18px; font-weight: 600; color: #1D9E75; }
+.metric .lbl { font-size: 10px; color: #888; }
+
+.algo-btns { display: flex; flex-direction: column; gap: 4px; }
+.algo-btn { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.15s; font-size: 12px; background: #fff; color: #1a1a1a; }
+.algo-btn:hover { border-color: #1D9E75; }
+.algo-btn.selected { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+.algo-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #9FE1CB; color: #085041; font-weight: 600; margin-left: auto; }
+
+.info-panel { background: #E1F5EE; border: 1px solid #9FE1CB; border-radius: 8px; padding: 10px; font-size: 12px; color: #085041; line-height: 1.5; }
+.warn-panel { background: #FAEEDA; border: 1px solid #EFC97A; border-radius: 8px; padding: 10px; font-size: 12px; color: #6B3A0A; line-height: 1.5; }
+
+svg { width: 100%; height: 100%; display: block; }
+
+.log-line { display: flex; gap: 8px; }
+.log-time { color: #1D9E75; flex-shrink: 0; }
+.log-step { color: #555; }
+.log-info { color: #185FA5; }
+.log-warn { color: #BA7517; }
+.log-ok   { color: #1D9E75; font-weight: 600; }
+.log-py   { color: #7B4FD1; font-weight: 600; }
+
+.co-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #EEEDFE; color: #3C3489; font-weight: 600; display: inline-block; margin-left: 4px; }
+.py-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #F0EBF9; color: #5A2CA0; font-weight: 600; display: inline-block; margin-left: 4px; }
+
+.constraint-row { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.constraint-row input[type=checkbox] { width: auto; cursor: pointer; accent-color: #1D9E75; }
+
+.tabs { display: flex; border-bottom: 1px solid #eee; background: #fff; }
+.tab { padding: 10px 16px; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; transition: all 0.15s; white-space: nowrap; }
+.tab:hover { color: #1D9E75; }
+.tab.active { color: #1D9E75; border-bottom-color: #1D9E75; font-weight: 600; }
+
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; display: inline-block; }
+.badge.green  { background: #E1F5EE; color: #0F6E56; }
+.badge.blue   { background: #E6F1FB; color: #185FA5; }
+.badge.amber  { background: #FAEEDA; color: #854F0B; }
+.badge.red    { background: #FCEBEB; color: #A32D2D; }
+.badge.purple { background: #F0EBF9; color: #5A2CA0; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; }
+th { font-size: 11px; font-weight: 600; color: #888; }
+
+.panel-content { padding: 14px; font-size: 12px; line-height: 1.7; max-width: 620px; overflow-y: auto; height: 100%; }
+.panel-content h3 { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 8px; }
+
+.server-status { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+.status-dot.ok  { background: #1D9E75; }
+.status-dot.err { background: #E24B4A; }
+
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #ccc; border-top-color: #1D9E75; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div>
+      <div class="section-label">Agent Setup <span class="co-tag">CO1 PEAS</span></div>
+      <div class="info-panel" style="margin-top:4px; font-size:11px;">
+        <b>Perf:</b> Shortest + safest path<br>
+        <b>Env:</b> Hospital graph (partially obs.)<br>
+        <b>Act:</b> Move to adjacent room<br>
+        <b>Sensors:</b> Congestion, alerts, accessibility
+      </div>
+    </div>
+
+    <div>
+      <div class="server-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusLabel">Python backend: checking…</span>
+        <span class="py-tag">Flask</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Navigation Goal</div>
+      <div style="margin-bottom:6px">
+        <div class="section-label" style="margin-bottom:2px">Start</div>
+        <select id="startSel"></select>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:2px">Destination</div>
+        <select id="endSel"></select>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Algorithm <span class="co-tag">CO2</span> <span class="py-tag">Python</span></div>
+      <div class="algo-btns" id="algoBtns">
+        <div class="algo-btn selected" data-algo="astar">  <span>A*</span>              <span class="algo-badge">Optimal</span>  </div>
+        <div class="algo-btn" data-algo="bfs">             <span>BFS</span>             <span class="algo-badge">Complete</span> </div>
+        <div class="algo-btn" data-algo="dfs">             <span>DFS</span>             <span class="algo-badge">Memory↓</span>  </div>
+        <div class="algo-btn" data-algo="greedy">          <span>Greedy Best-First</span><span class="algo-badge">Fast</span>    </div>
+        <div class="algo-btn" data-algo="ucs">             <span>UCS (Dijkstra)</span>  <span class="algo-badge">Uniform</span>  </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Constraints <span class="co-tag">CO3 CSP</span></div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label class="constraint-row"><input type="checkbox" id="cWheelchair"> Wheelchair accessible</label>
+        <label class="constraint-row"><input type="checkbox" id="cAvoidICU"> Avoid ICU corridor</label>
+        <label class="constraint-row"><input type="checkbox" id="cEmergency"> Emergency priority</label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Patient State <span class="co-tag">CO5 Bayesian</span> <span class="py-tag">Python</span></div>
+      <select id="patientState">
+        <option value="stable">Stable</option>
+        <option value="critical">Critical</option>
+        <option value="visiting">Visitor</option>
+        <option value="staff">Staff</option>
+      </select>
+    </div>
+
+    <button class="primary" id="runBtn">Navigate ↗</button>
+    <button class="reset-btn" id="resetBtn">Reset</button>
+
+    <div>
+      <div class="section-label">Performance <span class="co-tag">CO2</span></div>
+      <div class="metric-row">
+        <div class="metric"><div class="val" id="mNodes">—</div><div class="lbl">Nodes</div></div>
+        <div class="metric"><div class="val" id="mCost">—</div><div class="lbl">Cost</div></div>
+        <div class="metric"><div class="val" id="mSteps">—</div><div class="lbl">Hops</div></div>
+      </div>
+      <div class="metric" style="margin-top:6px;">
+        <div class="val" id="mMs" style="font-size:13px;">—</div>
+        <div class="lbl">Python exec (ms)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAIN PANEL -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active" data-tab="map">Hospital Map</div>
+      <div class="tab" data-tab="csp">CSP / Constraints</div>
+      <div class="tab" data-tab="bayes">Bayesian Risk</div>
+      <div class="tab" data-tab="decision">Decision Logic</div>
+    </div>
+
+    <div class="map-area" id="mapArea">
+      <svg id="mapSvg" viewBox="0 0 660 360"></svg>
+    </div>
+
+    <div class="log-area" id="logArea">
+      <div class="log-line">
+        <span class="log-time">[init]</span>
+        <span class="log-step">Hospital Navigation Assistant ready. Python Flask backend handles all search algorithms.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────
+const API = "http://127.0.0.1:5000/api";
+
+// ─────────────────────────────────────────────
+//  GRAPH DATA (for rendering only — search runs in Python)
+// ─────────────────────────────────────────────
+const NODES = {
+  entrance:   { x:60,  y:180, label:"Entrance",   type:"main",     risk:0.1,  wheelchair:true  },
+  reception:  { x:150, y:180, label:"Reception",  type:"main",     risk:0.1,  wheelchair:true  },
+  elevator:   { x:150, y:90,  label:"Elevator",   type:"util",     risk:0.15, wheelchair:true  },
+  stairs:     { x:150, y:270, label:"Stairs",     type:"util",     risk:0.2,  wheelchair:false },
+  radiology:  { x:270, y:60,  label:"Radiology",  type:"dept",     risk:0.25, wheelchair:true  },
+  pharmacy:   { x:270, y:180, label:"Pharmacy",   type:"dept",     risk:0.1,  wheelchair:true  },
+  emergency:  { x:60,  y:300, label:"Emergency",  type:"critical", risk:0.6,  wheelchair:true  },
+  icu:        { x:380, y:60,  label:"ICU",        type:"critical", risk:0.7,  wheelchair:true  },
+  surgery:    { x:490, y:60,  label:"Surgery",    type:"critical", risk:0.5,  wheelchair:true  },
+  ward_a:     { x:380, y:180, label:"Ward A",     type:"ward",     risk:0.2,  wheelchair:true  },
+  ward_b:     { x:490, y:180, label:"Ward B",     type:"ward",     risk:0.2,  wheelchair:true  },
+  cafeteria:  { x:380, y:300, label:"Cafeteria",  type:"main",     risk:0.05, wheelchair:true  },
+  lab:        { x:270, y:300, label:"Lab",        type:"dept",     risk:0.3,  wheelchair:true  },
+  outpatient: { x:590, y:180, label:"Outpatient", type:"dept",     risk:0.15, wheelchair:true  },
+  physio:     { x:590, y:300, label:"Physio",     type:"dept",     risk:0.1,  wheelchair:true  },
+};
+
+const EDGES = [
+  ["entrance","reception",2],["entrance","emergency",3],
+  ["reception","elevator",2],["reception","stairs",2],["reception","pharmacy",3],
+  ["elevator","radiology",2],["elevator","ward_a",3],["elevator","icu",4],
+  ["stairs","pharmacy",2],["stairs","lab",3],
+  ["radiology","icu",2],["icu","surgery",2],
+  ["pharmacy","ward_a",2],["pharmacy","lab",2],
+  ["ward_a","ward_b",2],["ward_a","cafeteria",3],
+  ["ward_b","surgery",3],["ward_b","outpatient",2],
+  ["cafeteria","physio",2],["cafeteria","lab",2],
+  ["outpatient","physio",2],["lab","emergency",3],
+];
+
+const TYPE_STROKE = { main:"#1D9E75", dept:"#185FA5", critical:"#E24B4A", ward:"#BA7517", util:"#888780" };
+const TYPE_FILL   = { main:"#E1F5EE", dept:"#E6F1FB", critical:"#FCEBEB", ward:"#FAEEDA", util:"#F1EFE8" };
+
+// ─────────────────────────────────────────────
+//  LOGGING
+// ─────────────────────────────────────────────
+function log(msg, type = "step") {
+  const logArea = document.getElementById("logArea");
+  const t = new Date().toLocaleTimeString("en", { hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit" });
+  const div = document.createElement("div");
+  div.className = "log-line";
+  div.innerHTML = `<span class="log-time">[${t}]</span><span class="log-${type}">${msg}</span>`;
+  logArea.appendChild(div);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+// ─────────────────────────────────────────────
+//  HEALTH CHECK
+// ─────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    document.getElementById("statusDot").className   = "status-dot ok";
+    document.getElementById("statusLabel").textContent = `Python backend: online (${d.nodes} nodes, ${d.edges} edges)`;
+    log(`Python Flask server connected — ${d.nodes} nodes, ${d.edges} edges loaded.`, "py");
+  } catch {
+    document.getElementById("statusDot").className   = "status-dot err";
+    document.getElementById("statusLabel").textContent = "Python backend: offline — run app.py";
+    log("⚠ Python backend not reachable. Start Flask server: python app.py", "warn");
+  }
+}
+
+// ─────────────────────────────────────────────
+//  SVG MAP RENDERER (pure JS — visualisation only)
+// ─────────────────────────────────────────────
+function renderMap(path, start, end) {
+  const svg = document.getElementById("mapSvg");
+  if (!svg) return;
+  svg.innerHTML = "";
+
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <marker id="arr"  markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1D9E75"/></marker>
+    <marker id="arrd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#ccc"/></marker>`;
+  svg.appendChild(defs);
+
+  const pathSet = new Set();
+  if (path) for (let i = 0; i < path.length - 1; i++) {
+    pathSet.add(path[i] + "_" + path[i+1]);
+    pathSet.add(path[i+1] + "_" + path[i]);
+  }
+
+  EDGES.forEach(([a, b, w]) => {
+    const na = NODES[a], nb = NODES[b];
+    const onPath = pathSet.has(a+"_"+b) || pathSet.has(b+"_"+a);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", na.x); line.setAttribute("y1", na.y);
+    line.setAttribute("x2", nb.x); line.setAttribute("y2", nb.y);
+    line.setAttribute("stroke", onPath ? "#1D9E75" : "#ccc");
+    line.setAttribute("stroke-width", onPath ? "3" : "1.5");
+    line.setAttribute("opacity", onPath ? "1" : "0.6");
+    svg.appendChild(line);
+    const mx = (na.x+nb.x)/2, my = (na.y+nb.y)/2;
+    const wt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    wt.setAttribute("x", mx); wt.setAttribute("y", my - 4);
+    wt.setAttribute("font-size", "9"); wt.setAttribute("fill", "#aaa"); wt.setAttribute("text-anchor", "middle");
+    wt.textContent = w; svg.appendChild(wt);
+  });
+
+  Object.entries(NODES).forEach(([id, n]) => {
+    const onPath = path && path.includes(id);
+    const isStart = id === start, isEnd = id === end;
+    const r = 22;
+    const stroke = isStart ? "#1D9E75" : isEnd ? "#E24B4A" : onPath ? "#1D9E75" : TYPE_STROKE[n.type];
+    const fill   = isStart ? "#1D9E75" : isEnd ? "#E24B4A" : onPath ? "#E1F5EE" : TYPE_FILL[n.type];
+    const txtCol = (isStart || isEnd) ? "white" : onPath ? "#085041" : "#333";
+
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", n.x - r); rect.setAttribute("y", n.y - 14);
+    rect.setAttribute("width", r*2); rect.setAttribute("height", 28); rect.setAttribute("rx", "6");
+    rect.setAttribute("fill", fill); rect.setAttribute("stroke", stroke);
+    rect.setAttribute("stroke-width", (onPath || isStart || isEnd) ? "2.5" : "1");
+    svg.appendChild(rect);
+
+    if (!n.wheelchair) {
+      const noWc = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      noWc.setAttribute("x", n.x + r - 2); noWc.setAttribute("y", n.y - 10);
+      noWc.setAttribute("font-size", "10"); noWc.setAttribute("fill", "#E24B4A"); noWc.setAttribute("font-weight", "bold");
+      noWc.textContent = "!"; svg.appendChild(noWc);
+    }
+
+    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    txt.setAttribute("x", n.x); txt.setAttribute("y", n.y + 4);
+    txt.setAttribute("font-size", "8.5"); txt.setAttribute("fill", txtCol);
+    txt.setAttribute("text-anchor", "middle"); txt.setAttribute("font-weight", "600");
+    txt.textContent = n.label; svg.appendChild(txt);
+  });
+
+  const legendItems = [["#1D9E75","Start/End"],["#5DCAA5","Path"],["#185FA5","Dept"],["#E24B4A","Critical"],["#BA7517","Ward"]];
+  legendItems.forEach(([c, l], i) => {
+    const lx = 10 + i * 100, ly = 345;
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", lx); r.setAttribute("y", ly); r.setAttribute("width", 10); r.setAttribute("height", 10); r.setAttribute("rx", "2"); r.setAttribute("fill", c);
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("x", lx+14); t.setAttribute("y", ly+9); t.setAttribute("font-size", "9"); t.setAttribute("fill", "#888"); t.textContent = l;
+    svg.appendChild(r); svg.appendChild(t);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  CSP TAB — rendered from Python response
+// ─────────────────────────────────────────────
+function renderCSP(csp, constraints) {
+  document.getElementById("mapArea").innerHTML = `
+  <div class="panel-content">
+    <h3>CSP Model <span class="co-tag">CO3</span> <span class="py-tag">Computed in Python</span></h3>
+    <div class="info-panel" style="margin-bottom:10px;">
+      <b>Variables:</b> Each node on candidate path<br>
+      <b>Domains:</b> {reachable adjacent rooms}<br>
+      <b>Constraints:</b> Accessibility, risk level, corridor availability<br>
+      <b>Validation:</b> Performed server-side by <code>validate_csp()</code> in app.py
+    </div>
+    <table>
+      <thead><tr>
+        <th>Node</th><th>Wheelchair</th><th>Risk</th><th>ICU Restrict</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        ${csp ? csp.map(n => `<tr>
+          <td style="font-weight:600">${n.label}</td>
+          <td>${n.wheelchair ? '<span class="badge green">✓ Yes</span>' : '<span class="badge red">✗ No</span>'}</td>
+          <td><span class="badge ${n.risk > 0.4 ? 'red' : n.risk > 0.2 ? 'amber' : 'green'}">${Math.round(n.risk*100)}%</span></td>
+          <td>${!n.icu_ok ? '<span class="badge red">Blocked</span>' : '<span class="badge green">OK</span>'}</td>
+          <td>${n.satisfies ? '<span class="badge green">✓ Satisfies</span>' : '<span class="badge red">✗ Violates</span>'}</td>
+        </tr>`).join("") : '<tr><td colspan="5" style="padding:12px;color:#888;">Run navigation first.</td></tr>'}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:11px;color:#888;line-height:1.6;">
+      <b>Arc Consistency (AC-3 intuition):</b> Before search, we eliminate from each node's
+      domain any values that violate a binary constraint. Forward checking prunes domains
+      dynamically as each node is assigned. <b>Python function:</b> <code>validate_csp(path, wheelchair, avoid_icu)</code>
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  BAYESIAN TAB — rendered from Python response
+// ─────────────────────────────────────────────
+function renderBayes(bayesian, patient) {
+  const priors = { stable:0.15, critical:0.70, visiting:0.05, staff:0.10 };
+  document.getElementById("mapArea").innerHTML = `
+  <div class="panel-content">
+    <h3>Bayesian Risk Assessment <span class="co-tag">CO5</span> <span class="py-tag">Computed in Python</span></h3>
+    <div class="info-panel" style="margin-bottom:10px;">
+      <b>P(complication | patient_type)</b><br>
+      Patient: <b>${patient}</b> — Prior risk: <b>${Math.round((priors[patient]||0.15)*100)}%</b><br>
+      Bayes rule: P(H|E) = P(E|H)·P(H) / P(E)<br>
+      <b>Python function:</b> <code>compute_bayesian_risk(path, patient_type)</code>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      ${bayesian ? bayesian.map(n => {
+        const bar = Math.round(n.posterior*100);
+        return `<div style="background:#f5f5f5;border-radius:8px;padding:10px;border:1px solid #e0e0e0;">
+          <div style="font-weight:600;margin-bottom:4px;">${n.label}</div>
+          <div style="font-size:10px;color:#888;margin-bottom:4px;">
+            Prior: ${Math.round(n.prior*100)}% | Likelihood: ${Math.round(n.likelihood*100)}%
+          </div>
+          <div style="background:#e0e0e0;border-radius:4px;height:6px;margin-bottom:6px;overflow:hidden;">
+            <div style="width:${bar}%;height:100%;background:${n.risk_level==='high'?'#E24B4A':n.risk_level==='medium'?'#EF9F27':'#1D9E75'};border-radius:4px;"></div>
+          </div>
+          <span class="badge ${n.risk_level==='high'?'red':n.risk_level==='medium'?'amber':'green'}">${bar}% posterior</span>
+        </div>`;
+      }).join("") : '<div style="color:#888;padding:8px;">Run navigation first.</div>'}
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      <b>Bayesian Network:</b> Patient_type → Room_risk → Complication_prob.
+      CPT updated per room traversal. Posterior = (likelihood × prior) / evidence.
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  DECISION LOGIC TAB
+// ─────────────────────────────────────────────
+function renderDecision(result, path) {
+  const patient = document.getElementById("patientState").value;
+  const algoDesc = {
+    astar:  "A* uses f(n)=g(n)+h(n). Admissible heuristic (Euclidean÷55) guarantees optimality. Closed set prevents re-expansion.",
+    bfs:    "BFS explores level by level — guarantees shortest hop count, not minimum cost. Complete for finite graphs.",
+    dfs:    "DFS uses a stack, memory O(depth). May find non-optimal paths but useful for constraint-heavy graphs.",
+    greedy: "Greedy expands node with lowest h(n). Fast but non-optimal — may miss shorter paths.",
+    ucs:    "UCS (Dijkstra) expands by cumulative cost g(n). Optimal when all edges positive, no heuristic needed.",
+  };
+  const patientDesc = {
+    critical: "λ=2.0 (high risk weight), μ=1.5 (urgency). Prefer elevator, avoid congested corridors.",
+    stable:   "λ=0.8 (moderate risk weight), μ=0.5. Standard routing with constraint satisfaction.",
+    visiting: "λ=0.3 (low risk weight). Direct, visitor-friendly path preferred.",
+    staff:    "λ=0.2. All corridors permitted including ICU. Efficiency-first routing.",
+  };
+
+  document.getElementById("mapArea").innerHTML = `
+  <div class="panel-content">
+    <h3>Decision Logic <span class="co-tag">CO4 CO6</span></h3>
+    <div class="info-panel" style="margin-bottom:10px;">
+      <b>Utility = −PathCost − λ·Risk − μ·Urgency</b><br>
+      Policy: maximize expected utility under active constraints
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="background:#f5f5f5;border-radius:8px;padding:10px;border:1px solid #e0e0e0;">
+        <div style="font-weight:600;margin-bottom:4px;">Algorithm: ${selectedAlgo.toUpperCase()} <span class="py-tag">Python heapq</span></div>
+        <div style="color:#666;font-size:11px;">${algoDesc[selectedAlgo]}</div>
+      </div>
+      <div style="background:#f5f5f5;border-radius:8px;padding:10px;border:1px solid #e0e0e0;">
+        <div style="font-weight:600;margin-bottom:4px;">Patient policy: ${patient}</div>
+        <div style="color:#666;font-size:11px;">${patientDesc[patient]}</div>
+      </div>
+      ${result ? `
+      <div style="background:#E1F5EE;border-radius:8px;padding:10px;border:1px solid #9FE1CB;">
+        <div style="font-weight:600;color:#085041;margin-bottom:4px;">Recommended path (from Python):</div>
+        <div style="color:#0F6E56;font-size:12px;">${result.path_labels.join(" → ")}</div>
+        <div style="color:#085041;font-size:11px;margin-top:4px;">
+          Total cost: ${result.cost} | Nodes expanded: ${result.expanded} | Python exec: ${result.elapsed_ms}ms
+        </div>
+      </div>` : `<div style="color:#888;padding:8px;">Run navigation to see decision trace.</div>`}
+      <div style="font-size:11px;color:#888;line-height:1.6;">
+        <b>Explainability (CO6):</b> Each constraint failure is logged. Search algorithms run fully
+        in <b>Python (Flask backend)</b> via REST API. Heuristic: Euclidean÷55 — may underestimate
+        elevator routes. Uncertainty: congestion is not real-time.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let selectedAlgo  = "astar";
+let currentPath   = null;
+let currentResult = null;
+let currentCsp    = null;
+let currentBayes  = null;
+let currentTab    = "map";
+
+function getConstraints() {
+  return {
+    wheelchair: document.getElementById("cWheelchair").checked,
+    avoidICU:   document.getElementById("cAvoidICU").checked,
+    emergency:  document.getElementById("cEmergency").checked,
+  };
+}
+
+function renderCurrentTab() {
+  const start = document.getElementById("startSel").value;
+  const end   = document.getElementById("endSel").value;
+  if (currentTab === "map") {
+    document.getElementById("mapArea").innerHTML = '<svg id="mapSvg" viewBox="0 0 660 360"></svg>';
+    renderMap(currentPath, start, end);
+  } else if (currentTab === "csp")      renderCSP(currentCsp, getConstraints());
+  else if (currentTab === "bayes")      renderBayes(currentBayes, document.getElementById("patientState").value);
+  else if (currentTab === "decision")   renderDecision(currentResult, currentPath);
+}
+
+// ─────────────────────────────────────────────
+//  POPULATE DROPDOWNS
+// ─────────────────────────────────────────────
+function populate() {
+  const s = document.getElementById("startSel");
+  const e = document.getElementById("endSel");
+  Object.entries(NODES).forEach(([id, n]) => {
+    s.innerHTML += `<option value="${id}">${n.label}</option>`;
+    e.innerHTML += `<option value="${id}">${n.label}</option>`;
+  });
+  s.value = "entrance";
+  e.value = "ward_a";
+}
+
+// ─────────────────────────────────────────────
+//  MAIN NAVIGATE — calls Python backend
+// ─────────────────────────────────────────────
+document.getElementById("runBtn").addEventListener("click", async () => {
+  const start       = document.getElementById("startSel").value;
+  const end         = document.getElementById("endSel").value;
+  const constraints = getConstraints();
+  const patient     = document.getElementById("patientState").value;
+
+  if (start === end) { log("Start and destination must differ.", "warn"); return; }
+
+  const btn = document.getElementById("runBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Calling Python…';
+
+  log(`Sending request to Python backend — start=${NODES[start].label}, goal=${NODES[end].label}, algo=${selectedAlgo.toUpperCase()}`, "info");
+  log(`Constraints: wheelchair=${constraints.wheelchair}, avoidICU=${constraints.avoidICU}, emergency=${constraints.emergency} | patient=${patient}`, "step");
+
+  try {
+    const res = await fetch(`${API}/navigate`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        start,
+        end,
+        algorithm:    selectedAlgo,
+        wheelchair:   constraints.wheelchair,
+        avoid_icu:    constraints.avoidICU,
+        emergency:    constraints.emergency,
+        patient_type: patient,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (!data.found) {
+      log(`Python: ${data.message}`, "warn");
+      currentPath = null; currentResult = null; currentCsp = null; currentBayes = null;
+      document.getElementById("mNodes").textContent = "0";
+      document.getElementById("mCost").textContent  = "∞";
+      document.getElementById("mSteps").textContent = "0";
+      document.getElementById("mMs").textContent    = data.elapsed_ms + "ms";
+    } else {
+      currentPath   = data.path;
+      currentResult = data;
+      currentCsp    = data.csp;
+      currentBayes  = data.bayesian;
+
+      log(`Python path found in ${data.elapsed_ms}ms: ${data.path_labels.join(" → ")}`, "ok");
+      log(`Nodes expanded: ${data.expanded} | Path cost: ${data.cost} | Hops: ${data.hops}`, "py");
+
+      if (constraints.wheelchair) {
+        const blocked = data.csp.filter(n => !n.wheelchair).map(n => n.label);
+        if (blocked.length) log(`CSP note: ${blocked.join(", ")} flagged for wheelchair check`, "warn");
+      }
+
+      const highRisk = data.bayesian.filter(n => n.risk_level === "high").map(n => n.label);
+      if (highRisk.length) log(`Bayesian: high posterior risk nodes — ${highRisk.join(", ")}`, "warn");
+
+      document.getElementById("mNodes").textContent = data.expanded;
+      document.getElementById("mCost").textContent  = data.cost;
+      document.getElementById("mSteps").textContent = data.hops;
+      document.getElementById("mMs").textContent    = data.elapsed_ms + "ms";
+    }
+  } catch (err) {
+    log(`Backend error: ${err.message}. Is Python server running? → python app.py`, "warn");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Navigate ↗";
+  renderCurrentTab();
+});
+
+// ─────────────────────────────────────────────
+//  OTHER CONTROLS
+// ─────────────────────────────────────────────
+document.getElementById("resetBtn").addEventListener("click", () => {
+  currentPath = null; currentResult = null; currentCsp = null; currentBayes = null;
+  ["mNodes","mCost","mSteps","mMs"].forEach(id => document.getElementById(id).textContent = "—");
+  document.getElementById("logArea").innerHTML =
+    '<div class="log-line"><span class="log-time">[reset]</span><span class="log-step">Cleared. Ready for new navigation.</span></div>';
+  renderCurrentTab();
+});
+
+document.querySelectorAll(".algo-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".algo-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    selectedAlgo = btn.dataset.algo;
+    log(`Algorithm → ${selectedAlgo.toUpperCase()} (will run in Python on next Navigate)`, "info");
+  });
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentTab = tab.dataset.tab;
+    renderCurrentTab();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+populate();
+renderMap(null, "entrance", "ward_a");
+checkHealth();
+</script>
+</body>
+</html>
